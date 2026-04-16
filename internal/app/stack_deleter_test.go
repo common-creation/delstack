@@ -56,6 +56,7 @@ func TestStackDeleter_DeleteStacksConcurrently_IndependentStacks(t *testing.T) {
 	d := &StackDeleter{
 		forceMode:         false,
 		concurrencyNumber: UnspecifiedConcurrencyNumber,
+		ignoreDependency:  false,
 		analyzer:          &mockDependencyAnalyzer{graph: buildGraph(map[string][]string{"A": {}, "B": {}, "C": {}})},
 		executor:          executor,
 	}
@@ -76,6 +77,7 @@ func TestStackDeleter_DeleteStacksConcurrently_DependencyOrder(t *testing.T) {
 	d := &StackDeleter{
 		forceMode:         false,
 		concurrencyNumber: UnspecifiedConcurrencyNumber,
+		ignoreDependency:  false,
 		analyzer:          &mockDependencyAnalyzer{graph: buildGraph(map[string][]string{"A": {}, "B": {"A"}})},
 		executor:          executor,
 	}
@@ -102,6 +104,7 @@ func TestStackDeleter_DeleteStacksConcurrently_ComplexDeps(t *testing.T) {
 	d := &StackDeleter{
 		forceMode:         false,
 		concurrencyNumber: UnspecifiedConcurrencyNumber,
+		ignoreDependency:  false,
 		analyzer: &mockDependencyAnalyzer{graph: buildGraph(map[string][]string{
 			"A": {}, "B": {}, "C": {"A"}, "D": {"A"}, "E": {"B"}, "F": {"C", "D", "E"},
 		})},
@@ -139,6 +142,7 @@ func TestStackDeleter_DeleteStacksConcurrently_BuildGraphError(t *testing.T) {
 	d := &StackDeleter{
 		forceMode:         false,
 		concurrencyNumber: 0,
+		ignoreDependency:  false,
 		analyzer:          &mockDependencyAnalyzer{err: fmt.Errorf("graph error")},
 		executor:          &mockStackExecutor{},
 	}
@@ -158,6 +162,7 @@ func TestStackDeleter_DeleteStacksConcurrently_CircularDependency(t *testing.T) 
 	d := &StackDeleter{
 		forceMode:         false,
 		concurrencyNumber: UnspecifiedConcurrencyNumber,
+		ignoreDependency:  false,
 		analyzer:          &mockDependencyAnalyzer{graph: buildGraph(map[string][]string{"A": {"B"}, "B": {"A"}})},
 		executor:          &mockStackExecutor{},
 	}
@@ -177,6 +182,7 @@ func TestStackDeleter_DeleteStacksConcurrently_DeletionError(t *testing.T) {
 	d := &StackDeleter{
 		forceMode:         false,
 		concurrencyNumber: UnspecifiedConcurrencyNumber,
+		ignoreDependency:  false,
 		analyzer:          &mockDependencyAnalyzer{graph: buildGraph(map[string][]string{"Stack": {}})},
 		executor:          &mockStackExecutor{err: fmt.Errorf("deletion failed")},
 	}
@@ -198,6 +204,7 @@ func TestStackDeleter_DeleteStacksConcurrently_Concurrency(t *testing.T) {
 	d := &StackDeleter{
 		forceMode:         false,
 		concurrencyNumber: 1,
+		ignoreDependency:  false,
 		analyzer:          &mockDependencyAnalyzer{graph: buildGraph(map[string][]string{"A": {}, "B": {}, "C": {}})},
 		executor:          &mockStackExecutor{},
 	}
@@ -241,4 +248,48 @@ func (e *concurrencyTrackingExecutor) Execute(_ context.Context, stack string, _
 	*e.deleted = append(*e.deleted, stack)
 	e.mu.Unlock()
 	return nil
+}
+
+func TestStackDeleter_DeleteStacksConcurrently_IgnoreDependency(t *testing.T) {
+	io.NewLogger(false)
+
+	executor := &mockStackExecutor{}
+	// Use an analyzer that returns an error - it should NOT be called when ignoreDependency is true
+	d := &StackDeleter{
+		forceMode:         false,
+		concurrencyNumber: UnspecifiedConcurrencyNumber,
+		ignoreDependency:  true,
+		analyzer:          &mockDependencyAnalyzer{err: fmt.Errorf("should not be called")},
+		executor:          executor,
+	}
+
+	err := d.DeleteStacksConcurrently(context.Background(), []string{"A", "B", "C"}, aws.Config{}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(executor.deleted) != 3 {
+		t.Errorf("expected 3 stacks deleted, got %d: %v", len(executor.deleted), executor.deleted)
+	}
+}
+
+func TestStackDeleter_DeleteStacksConcurrently_IgnoreDependencySkipsCircularCheck(t *testing.T) {
+	io.NewLogger(false)
+
+	executor := &mockStackExecutor{}
+	// Even with circular deps in the analyzer graph, ignoreDependency skips analysis entirely
+	d := &StackDeleter{
+		forceMode:         false,
+		concurrencyNumber: UnspecifiedConcurrencyNumber,
+		ignoreDependency:  true,
+		analyzer:          &mockDependencyAnalyzer{graph: buildGraph(map[string][]string{"A": {"B"}, "B": {"A"}})},
+		executor:          executor,
+	}
+
+	err := d.DeleteStacksConcurrently(context.Background(), []string{"A", "B"}, aws.Config{}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(executor.deleted) != 2 {
+		t.Errorf("expected 2 stacks deleted, got %d: %v", len(executor.deleted), executor.deleted)
+	}
 }

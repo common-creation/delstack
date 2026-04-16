@@ -15,14 +15,16 @@ import (
 type StackDeleter struct {
 	forceMode         bool
 	concurrencyNumber int
+	ignoreDependency  bool
 	analyzer          IDependencyAnalyzer
 	executor          IStackExecutor
 }
 
-func NewStackDeleter(forceMode bool, concurrencyNumber int, analyzer IDependencyAnalyzer, executor IStackExecutor) *StackDeleter {
+func NewStackDeleter(forceMode bool, concurrencyNumber int, ignoreDependency bool, analyzer IDependencyAnalyzer, executor IStackExecutor) *StackDeleter {
 	return &StackDeleter{
 		forceMode:         forceMode,
 		concurrencyNumber: concurrencyNumber,
+		ignoreDependency:  ignoreDependency,
 		analyzer:          analyzer,
 		executor:          executor,
 	}
@@ -34,19 +36,27 @@ func (d *StackDeleter) DeleteStacksConcurrently(
 	config aws.Config,
 	operatorFactory *operation.OperatorFactory,
 ) error {
-	io.Logger.Info().Msg("Analyzing stack dependencies...")
-	graph, err := d.analyzer.Analyze(ctx, stackNames, operatorFactory)
-	if err != nil {
-		return fmt.Errorf("DependencyAnalysisError: failed to build dependency graph: %w", err)
-	}
+	var graph *operation.StackDependencyGraph
 
-	cycles := graph.DetectCircularDependency()
-	if len(cycles) > 0 {
-		var errorMessages []string
-		for _, cycle := range cycles {
-			errorMessages = append(errorMessages, strings.Join(cycle, " -> "))
+	if d.ignoreDependency {
+		io.Logger.Info().Msg("Skipping dependency analysis (--ignoreDependency).")
+		graph = operation.NewStackDependencyGraph(stackNames)
+	} else {
+		io.Logger.Info().Msg("Analyzing stack dependencies...")
+		var err error
+		graph, err = d.analyzer.Analyze(ctx, stackNames, operatorFactory)
+		if err != nil {
+			return fmt.Errorf("DependencyAnalysisError: failed to build dependency graph: %w", err)
 		}
-		return fmt.Errorf("DependencyAnalysisError: circular dependencies detected:\n  %s", strings.Join(errorMessages, "\n  "))
+
+		cycles := graph.DetectCircularDependency()
+		if len(cycles) > 0 {
+			var errorMessages []string
+			for _, cycle := range cycles {
+				errorMessages = append(errorMessages, strings.Join(cycle, " -> "))
+			}
+			return fmt.Errorf("DependencyAnalysisError: circular dependencies detected:\n  %s", strings.Join(errorMessages, "\n  "))
+		}
 	}
 
 	io.Logger.Info().Msgf("Starting deletion of %d stack(s) with dynamic scheduling...", len(stackNames))

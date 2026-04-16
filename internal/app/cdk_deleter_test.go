@@ -43,6 +43,7 @@ func newTestCdkDeleter(executor IStackExecutor) *CdkDeleter {
 		profile:           "test",
 		forceMode:         false,
 		concurrencyNumber: 0,
+		ignoreDependency:  false,
 		configLoader:      &mockConfigLoader{},
 		analyzer:          &passThroughAnalyzer{},
 		executor:          executor,
