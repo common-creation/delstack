@@ -53,6 +53,20 @@ func (f *OperatorFactory) CreateCloudFormationStackOperator() *CloudFormationSta
 	return op
 }
 
+func (f *OperatorFactory) CreateCloudFormationClient() client.ICloudFormation {
+	sdkCfnClient := cloudformation.NewFromConfig(f.config, func(o *cloudformation.Options) {
+		o.RetryMaxAttempts = SDKRetryMaxAttempts
+		o.RetryMode = aws.RetryModeStandard
+	})
+	sdkCfnDeleteWaiter := cloudformation.NewStackDeleteCompleteWaiter(sdkCfnClient)
+	sdkCfnUpdateWaiter := cloudformation.NewStackUpdateCompleteWaiter(sdkCfnClient)
+	return client.NewCloudFormation(
+		sdkCfnClient,
+		sdkCfnDeleteWaiter,
+		sdkCfnUpdateWaiter,
+	)
+}
+
 func (f *OperatorFactory) CreateBackupVaultOperator() *BackupVaultOperator {
 	sdkBackupClient := backup.NewFromConfig(f.config, func(o *backup.Options) {
 		o.RetryMaxAttempts = SDKRetryMaxAttempts

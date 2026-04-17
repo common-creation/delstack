@@ -15,7 +15,9 @@ type IStackExecutor interface {
 	Execute(ctx context.Context, stack string, config aws.Config, operatorFactory *operation.OperatorFactory, forceMode bool, isRootStack bool) error
 }
 
-type StackExecutor struct{}
+type StackExecutor struct {
+	ProgressMode bool
+}
 
 func (e *StackExecutor) Execute(
 	ctx context.Context,
@@ -47,10 +49,45 @@ func (e *StackExecutor) Execute(
 	io.Logger.Debug().Msgf("[%v]: PreprocessRecursively: done", stack)
 
 	io.Logger.Debug().Msgf("[%v]: DeleteCloudFormationStack: start", stack)
-	if err := cloudformationStackOperator.DeleteCloudFormationStack(ctx, aws.String(stack), isRootStack, operatorManager); err != nil {
+
+	var stopProgress func()
+	if e.ProgressMode {
+		stopProgress = e.startProgressWatcher(ctx, stack, operatorFactory)
+	}
+
+	err := cloudformationStackOperator.DeleteCloudFormationStack(ctx, aws.String(stack), isRootStack, operatorManager)
+
+	if stopProgress != nil {
+		stopProgress()
+	}
+
+	if err != nil {
 		return fmt.Errorf("[%v]: Failed to delete: %w", stack, err)
 	}
 
 	io.Logger.Info().Msgf("[%v]: Successfully deleted!!", stack)
 	return nil
+}
+
+func (e *StackExecutor) startProgressWatcher(
+	ctx context.Context,
+	stack string,
+	operatorFactory *operation.OperatorFactory,
+) func() {
+	cfnClient := operatorFactory.CreateCloudFormationClient()
+
+	// Best-effort total count; a 0 just renders as "N/0".
+	total := 0
+	if resources, listErr := cfnClient.ListStackResources(ctx, aws.String(stack)); listErr == nil {
+		total = len(resources)
+	}
+
+	watcher := operation.NewStackProgressWatcher(stack, cfnClient, total)
+	watchCtx, cancel := context.WithCancel(ctx)
+	waitDone := watcher.Start(watchCtx)
+
+	return func() {
+		cancel()
+		waitDone()
+	}
 }

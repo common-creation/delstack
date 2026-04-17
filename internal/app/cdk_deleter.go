@@ -19,20 +19,22 @@ type CdkDeleter struct {
 	forceMode         bool
 	concurrencyNumber int
 	ignoreDependency  bool
+	progressMode      bool
 	configLoader      IConfigLoader
 	analyzer          IDependencyAnalyzer
 	executor          IStackExecutor
 }
 
-func NewCdkDeleter(profile string, forceMode bool, concurrencyNumber int, ignoreDependency bool) *CdkDeleter {
+func NewCdkDeleter(profile string, forceMode bool, concurrencyNumber int, ignoreDependency, progressMode bool) *CdkDeleter {
 	return &CdkDeleter{
 		profile:           profile,
 		forceMode:         forceMode,
 		concurrencyNumber: concurrencyNumber,
 		ignoreDependency:  ignoreDependency,
+		progressMode:      progressMode,
 		configLoader:      &ConfigLoader{},
 		analyzer:          &DependencyAnalyzer{},
-		executor:          &StackExecutor{},
+		executor:          &StackExecutor{ProgressMode: progressMode},
 	}
 }
 

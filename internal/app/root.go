@@ -21,9 +21,10 @@ type RootAction struct {
 	yesMode           bool
 	concurrencyNumber int
 	ignoreDependency  bool
+	progressMode      bool
 }
 
-func NewRootAction(stackNames []string, profile, region string, interactiveMode, forceMode, yesMode bool, concurrencyNumber int, ignoreDependency bool) *RootAction {
+func NewRootAction(stackNames []string, profile, region string, interactiveMode, forceMode, yesMode bool, concurrencyNumber int, ignoreDependency, progressMode bool) *RootAction {
 	return &RootAction{
 		stackNames:        stackNames,
 		profile:           profile,
@@ -33,6 +34,7 @@ func NewRootAction(stackNames []string, profile, region string, interactiveMode,
 		yesMode:           yesMode,
 		concurrencyNumber: concurrencyNumber,
 		ignoreDependency:  ignoreDependency,
+		progressMode:      progressMode,
 	}
 }
 
@@ -92,7 +94,7 @@ func (a *RootAction) Run(ctx context.Context) error {
 		}
 		io.Logger.Info().Msgf("The stacks will be removed concurrently, taking into account dependencies. (concurrency: %d)", concurrency)
 	}
-	if err := NewStackDeleter(a.forceMode, a.concurrencyNumber, a.ignoreDependency, &DependencyAnalyzer{}, &StackExecutor{}).DeleteStacksConcurrently(ctx, sortedStackNames, config, operatorFactory); err != nil {
+	if err := NewStackDeleter(a.forceMode, a.concurrencyNumber, a.ignoreDependency, &DependencyAnalyzer{}, &StackExecutor{ProgressMode: a.progressMode}).DeleteStacksConcurrently(ctx, sortedStackNames, config, operatorFactory); err != nil {
 		return err
 	}
 	return nil

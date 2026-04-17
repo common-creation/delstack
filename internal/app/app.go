@@ -21,6 +21,7 @@ type App struct {
 	YesMode           bool
 	ConcurrencyNumber int
 	IgnoreDependency  bool
+	ProgressMode      bool
 
 	// CDK subcommand fields
 	CdkAppPath  string
@@ -88,6 +89,13 @@ func NewApp(version string) *App {
 				Value:       false,
 				Usage:       "Skip dependency graph analysis between stacks (useful for retrying deletion of partially deleted stacks)",
 				Destination: &app.IgnoreDependency,
+			},
+			&cli.BoolFlag{
+				Name:        "progress",
+				Aliases:     []string{"P"},
+				Value:       false,
+				Usage:       "Show per-resource CloudFormation stack event progress (CDK-style)",
+				Destination: &app.ProgressMode,
 			},
 		},
 		Commands: []*cli.Command{
@@ -161,6 +169,13 @@ func NewApp(version string) *App {
 						Usage:       "Skip dependency graph analysis between stacks (useful for retrying deletion of partially deleted stacks)",
 						Destination: &app.IgnoreDependency,
 					},
+					&cli.BoolFlag{
+						Name:        "progress",
+						Aliases:     []string{"P"},
+						Value:       false,
+						Usage:       "Show per-resource CloudFormation stack event progress (CDK-style)",
+						Destination: &app.ProgressMode,
+					},
 				},
 				Action: func(c *cli.Context) error {
 					return NewCdkAction(
@@ -172,6 +187,7 @@ func NewApp(version string) *App {
 						app.YesMode,
 						app.ConcurrencyNumber,
 						app.IgnoreDependency,
+						app.ProgressMode,
 						app.CdkAppPath,
 						app.CdkContexts.Value(),
 					).Run(c.Context)
@@ -191,6 +207,7 @@ func NewApp(version string) *App {
 			app.YesMode,
 			app.ConcurrencyNumber,
 			app.IgnoreDependency,
+			app.ProgressMode,
 		).Run(c.Context)
 	}
 	app.Cli.HideHelpCommand = true
