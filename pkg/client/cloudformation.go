@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,6 +13,10 @@ import (
 )
 
 const CloudFormationWaitNanoSecTime = time.Duration(4500000000000)
+
+// cloudFormationDeletePollInterval is how often waitDeleteStack polls the stack
+// status. Overridable by tests.
+var cloudFormationDeletePollInterval = 5 * time.Second
 
 type ICloudFormation interface {
 	DeleteStack(ctx context.Context, stackName *string, retainResources []string) error
@@ -233,17 +238,66 @@ func (c *CloudFormation) UpdateStack(ctx context.Context, stackName *string, tem
 	return nil
 }
 
+// waitDeleteStack polls DescribeStacks until the stack reaches a terminal state.
+// The AWS-SDK StackDeleteCompleteWaiter only recognizes DELETE_COMPLETE and
+// DELETE_FAILED as terminal, so when CloudFormation cancels a delete and reverts
+// the stack to its previous stable state (e.g. "Delete canceled. Cannot delete
+// export ... as it is in use by ..."), the waiter keeps polling until the
+// 75-minute timeout. This implementation treats any non-delete status after the
+// delete was requested as a cancellation and returns immediately.
 func (c *CloudFormation) waitDeleteStack(ctx context.Context, stackName *string) error {
-	input := &cloudformation.DescribeStacksInput{
-		StackName: stackName,
-	}
+	deadline := time.Now().Add(CloudFormationWaitNanoSecTime)
 
-	err := c.deleteCompleteWaiter.Wait(ctx, input, CloudFormationWaitNanoSecTime)
-	if err != nil && !strings.Contains(err.Error(), "waiter state transitioned to Failure") {
-		return err // return non wrapping error because wrap in public callers
-	}
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 
-	return nil
+		input := &cloudformation.DescribeStacksInput{
+			StackName: stackName,
+		}
+		output, err := c.client.DescribeStacks(ctx, input)
+		if err != nil {
+			if strings.Contains(err.Error(), "does not exist") {
+				return nil
+			}
+			return err // return non wrapping error because wrap in public callers
+		}
+		if len(output.Stacks) == 0 {
+			return nil
+		}
+
+		status := output.Stacks[0].StackStatus
+		switch status {
+		case types.StackStatusDeleteComplete:
+			return nil
+		case types.StackStatusDeleteFailed:
+			// Resource-level failures are handled by the caller (retry with
+			// RetainResources).
+			return nil
+		case types.StackStatusDeleteInProgress:
+			// Still deleting.
+		default:
+			return fmt.Errorf(
+				"stack %s deletion was canceled by CloudFormation (StackStatus=%s): %s",
+				aws.ToString(stackName),
+				status,
+				aws.ToString(output.Stacks[0].StackStatusReason),
+			)
+		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timed out waiting for stack %s to be deleted", aws.ToString(stackName))
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(cloudFormationDeletePollInterval):
+		}
+	}
 }
 
 func (c *CloudFormation) ListImports(ctx context.Context, exportName *string) ([]string, error) {

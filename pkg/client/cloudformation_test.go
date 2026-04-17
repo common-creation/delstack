@@ -129,7 +129,7 @@ func TestCloudFormation_DeleteStack(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "delete stack successfully for transitioned to Failure",
+			name: "delete stack successfully for DELETE_FAILED (handled by caller)",
 			args: args{
 				ctx:             context.Background(),
 				stackName:       aws.String("test"),
@@ -137,7 +137,7 @@ func TestCloudFormation_DeleteStack(t *testing.T) {
 				withAPIOptionsFunc: func(stack *middleware.Stack) error {
 					return stack.Finalize.Add(
 						middleware.FinalizeMiddlewareFunc(
-							"DeleteStackOrDescribeStacksForWaiterStateTransitionedToFailureMock",
+							"DeleteStackOrDescribeStacksForDeleteFailedMock",
 							func(ctx context.Context, input middleware.FinalizeInput, handler middleware.FinalizeHandler) (middleware.FinalizeOutput, middleware.Metadata, error) {
 								operationName := awsMiddleware.GetOperationName(ctx)
 								if operationName == "DeleteStack" {
@@ -147,8 +147,15 @@ func TestCloudFormation_DeleteStack(t *testing.T) {
 								}
 								if operationName == "DescribeStacks" {
 									return middleware.FinalizeOutput{
-										Result: &cloudformation.DescribeStacksOutput{},
-									}, middleware.Metadata{}, fmt.Errorf("waiter state transitioned to Failure")
+										Result: &cloudformation.DescribeStacksOutput{
+											Stacks: []types.Stack{
+												{
+													StackName:   aws.String("StackName"),
+													StackStatus: types.StackStatusDeleteFailed,
+												},
+											},
+										},
+									}, middleware.Metadata{}, nil
 								}
 								return middleware.FinalizeOutput{}, middleware.Metadata{}, nil
 							},
@@ -159,6 +166,49 @@ func TestCloudFormation_DeleteStack(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: false,
+		},
+		{
+			name: "delete stack failure when CloudFormation cancels the delete",
+			args: args{
+				ctx:             context.Background(),
+				stackName:       aws.String("test"),
+				retainResources: []string{},
+				withAPIOptionsFunc: func(stack *middleware.Stack) error {
+					return stack.Finalize.Add(
+						middleware.FinalizeMiddlewareFunc(
+							"DeleteStackOrDescribeStacksForDeleteCanceledMock",
+							func(ctx context.Context, input middleware.FinalizeInput, handler middleware.FinalizeHandler) (middleware.FinalizeOutput, middleware.Metadata, error) {
+								operationName := awsMiddleware.GetOperationName(ctx)
+								if operationName == "DeleteStack" {
+									return middleware.FinalizeOutput{
+										Result: &cloudformation.DeleteStackOutput{},
+									}, middleware.Metadata{}, nil
+								}
+								if operationName == "DescribeStacks" {
+									return middleware.FinalizeOutput{
+										Result: &cloudformation.DescribeStacksOutput{
+											Stacks: []types.Stack{
+												{
+													StackName:         aws.String("test"),
+													StackStatus:       types.StackStatusCreateComplete,
+													StackStatusReason: aws.String("Delete canceled. Cannot delete export test:Export as it is in use by other-stack."),
+												},
+											},
+										},
+									}, middleware.Metadata{}, nil
+								}
+								return middleware.FinalizeOutput{}, middleware.Metadata{}, nil
+							},
+						),
+						middleware.Before,
+					)
+				},
+			},
+			want: &ClientError{
+				ResourceName: aws.String("test"),
+				Err:          fmt.Errorf("stack test deletion was canceled by CloudFormation (StackStatus=CREATE_COMPLETE): Delete canceled. Cannot delete export test:Export as it is in use by other-stack."),
+			},
+			wantErr: true,
 		},
 		{
 			name: "delete stack failure",
@@ -217,7 +267,7 @@ func TestCloudFormation_DeleteStack(t *testing.T) {
 			},
 			want: &ClientError{
 				ResourceName: aws.String("test"),
-				Err:          fmt.Errorf("expected err to be of type smithy.APIError, got %w", fmt.Errorf("operation error CloudFormation: DescribeStacks, WaitError")),
+				Err:          fmt.Errorf("operation error CloudFormation: DescribeStacks, WaitError"),
 			},
 			wantErr: true,
 		},
@@ -605,22 +655,29 @@ func TestCloudFormation_waitDeleteStack(t *testing.T) {
 					)
 				},
 			},
-			want:    fmt.Errorf("expected err to be of type smithy.APIError, got %w", fmt.Errorf("operation error CloudFormation: DescribeStacks, WaitError")),
+			want:    fmt.Errorf("operation error CloudFormation: DescribeStacks, WaitError"),
 			wantErr: true,
 		},
 		{
-			name: "wait failure for transitioned to Failure",
+			name: "wait successfully when stack is DELETE_FAILED (handled by caller)",
 			args: args{
 				ctx:       context.Background(),
 				stackName: aws.String("test"),
 				withAPIOptionsFunc: func(stack *middleware.Stack) error {
 					return stack.Finalize.Add(
 						middleware.FinalizeMiddlewareFunc(
-							"DescribeStacksForWaiterStateTransitionedToFailureMock",
+							"DescribeStacksForDeleteFailedMock",
 							func(context.Context, middleware.FinalizeInput, middleware.FinalizeHandler) (middleware.FinalizeOutput, middleware.Metadata, error) {
 								return middleware.FinalizeOutput{
-									Result: &cloudformation.DescribeStacksOutput{},
-								}, middleware.Metadata{}, fmt.Errorf("waiter state transitioned to Failure")
+									Result: &cloudformation.DescribeStacksOutput{
+										Stacks: []types.Stack{
+											{
+												StackName:   aws.String("test"),
+												StackStatus: types.StackStatusDeleteFailed,
+											},
+										},
+									},
+								}, middleware.Metadata{}, nil
 							},
 						),
 						middleware.Before,
@@ -629,6 +686,36 @@ func TestCloudFormation_waitDeleteStack(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: false,
+		},
+		{
+			name: "wait failure when CloudFormation cancels the delete",
+			args: args{
+				ctx:       context.Background(),
+				stackName: aws.String("test"),
+				withAPIOptionsFunc: func(stack *middleware.Stack) error {
+					return stack.Finalize.Add(
+						middleware.FinalizeMiddlewareFunc(
+							"DescribeStacksForDeleteCanceledMock",
+							func(context.Context, middleware.FinalizeInput, middleware.FinalizeHandler) (middleware.FinalizeOutput, middleware.Metadata, error) {
+								return middleware.FinalizeOutput{
+									Result: &cloudformation.DescribeStacksOutput{
+										Stacks: []types.Stack{
+											{
+												StackName:         aws.String("test"),
+												StackStatus:       types.StackStatusCreateComplete,
+												StackStatusReason: aws.String("Delete canceled. Cannot delete export test:Export as it is in use by other-stack."),
+											},
+										},
+									},
+								}, middleware.Metadata{}, nil
+							},
+						),
+						middleware.Before,
+					)
+				},
+			},
+			want:    fmt.Errorf("stack test deletion was canceled by CloudFormation (StackStatus=CREATE_COMPLETE): Delete canceled. Cannot delete export test:Export as it is in use by other-stack."),
+			wantErr: true,
 		},
 	}
 
