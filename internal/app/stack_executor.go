@@ -32,16 +32,21 @@ func (e *StackExecutor) Execute(
 	io.Logger.Info().Msgf("[%v]: Start deletion. Please wait a few minutes...", stack)
 
 	if forceMode {
+		io.Logger.Debug().Msgf("[%v]: RemoveDeletionPolicy: start", stack)
 		if err := cloudformationStackOperator.RemoveDeletionPolicy(ctx, aws.String(stack)); err != nil {
 			return fmt.Errorf("[%v]: Failed to remove deletion policy: %w", stack, err)
 		}
+		io.Logger.Debug().Msgf("[%v]: RemoveDeletionPolicy: done", stack)
 	}
 
+	io.Logger.Debug().Msgf("[%v]: PreprocessRecursively: start", stack)
 	pp := preprocessor.NewRecursivePreprocessorFromConfig(config, forceMode)
 	if err := pp.PreprocessRecursively(ctx, aws.String(stack)); err != nil {
 		return fmt.Errorf("[%v]: %w", stack, err)
 	}
+	io.Logger.Debug().Msgf("[%v]: PreprocessRecursively: done", stack)
 
+	io.Logger.Debug().Msgf("[%v]: DeleteCloudFormationStack: start", stack)
 	if err := cloudformationStackOperator.DeleteCloudFormationStack(ctx, aws.String(stack), isRootStack, operatorManager); err != nil {
 		return fmt.Errorf("[%v]: Failed to delete: %w", stack, err)
 	}

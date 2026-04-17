@@ -55,16 +55,24 @@ func (d *LambdaVPCDetacher) Preprocess(ctx context.Context, stackName *string, r
 
 	wg.Wait()
 
+	io.Logger.Debug().Msgf("[%v]: LambdaVPCDetacher.Preprocess finished for %d Lambda function(s)", aws.ToString(stackName), len(lambdaFunctions))
+
 	return nil
 }
 
 func (d *LambdaVPCDetacher) detachVPCFromFunction(ctx context.Context, stackName *string, functionName *string) error {
+	io.Logger.Debug().Msgf("[%v]: detachVPCFromFunction: calling GetFunction for %s",
+		aws.ToString(stackName), aws.ToString(functionName))
 	output, err := d.lambdaClient.GetFunction(ctx, functionName)
 	if err != nil {
 		return fmt.Errorf("failed to get function: %w", err)
 	}
+	io.Logger.Debug().Msgf("[%v]: detachVPCFromFunction: GetFunction returned for %s",
+		aws.ToString(stackName), aws.ToString(functionName))
 
 	if !d.isAttachedToVPC(output) {
+		io.Logger.Debug().Msgf("[%v]: Lambda function %s is not attached to VPC, skipping",
+			aws.ToString(stackName), aws.ToString(functionName))
 		return nil
 	}
 
@@ -88,7 +96,7 @@ func (d *LambdaVPCDetacher) detachVPCFromFunction(ctx context.Context, stackName
 		vpcConfig.Ipv6AllowedForDualStack = aws.Bool(false)
 	}
 
-	io.Logger.Debug().Msgf("[%v]: Removing VPC configuration from Lambda function %s",
+	io.Logger.Debug().Msgf("[%v]: Removing VPC configuration from Lambda function %s (calling UpdateFunctionConfiguration)",
 		aws.ToString(stackName), aws.ToString(functionName))
 	err = d.lambdaClient.UpdateFunctionConfiguration(ctx, &lambda.UpdateFunctionConfigurationInput{
 		FunctionName: functionName,
@@ -102,10 +110,14 @@ func (d *LambdaVPCDetacher) detachVPCFromFunction(ctx context.Context, stackName
 		aws.ToString(stackName), aws.ToString(functionName))
 
 	// Clean up ENIs associated with this Lambda function
+	io.Logger.Debug().Msgf("[%v]: Starting ENI cleanup for Lambda function %s",
+		aws.ToString(stackName), aws.ToString(functionName))
 	if err := d.cleanupENIs(ctx, stackName, functionName); err != nil {
 		io.Logger.Warn().Msgf("[%v]: Failed to clean up ENIs for function %s (continuing): %v",
 			aws.ToString(stackName), aws.ToString(functionName), err)
 	}
+	io.Logger.Debug().Msgf("[%v]: Finished ENI cleanup for Lambda function %s",
+		aws.ToString(stackName), aws.ToString(functionName))
 
 	return nil
 }

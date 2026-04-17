@@ -27,13 +27,16 @@ func NewCompositePreprocessor(checkers []IPreprocessor, modifiers []IPreprocesso
 func (c *CompositePreprocessor) Preprocess(ctx context.Context, stackName *string, resources []types.StackResourceSummary) error {
 	// Phase 1: Run checkers in parallel, collect errors
 	// Checker errors are fatal and abort the process
+	io.Logger.Debug().Msgf("[%v]: CompositePreprocessor: running %d checkers", aws.ToString(stackName), len(c.checkers))
 	if err := c.runCheckers(ctx, stackName, resources); err != nil {
 		return err
 	}
+	io.Logger.Debug().Msgf("[%v]: CompositePreprocessor: checkers done, running %d modifiers", aws.ToString(stackName), len(c.modifiers))
 
 	// Phase 2: Run modifiers in parallel, log warnings
 	// Modifier errors are logged but not returned
 	c.runModifiers(ctx, stackName, resources)
+	io.Logger.Debug().Msgf("[%v]: CompositePreprocessor: modifiers done", aws.ToString(stackName))
 
 	return nil
 }
