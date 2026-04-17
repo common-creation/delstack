@@ -126,11 +126,20 @@ func (o *CloudFormationStackOperator) DeleteCloudFormationStack(ctx context.Cont
 			return err
 		}
 
+		logicalResourceIds := operatorManager.GetLogicalResourceIds()
+
+		// Without any DELETE_FAILED resource to retry, retrying DeleteStack would
+		// hit the same stack-level failure forever (e.g. an export still in use by
+		// another stack). Surface the underlying CloudFormation reason instead.
+		if len(logicalResourceIds) == 0 {
+			return o.buildStackLevelDeleteFailedError(ctx, stackName)
+		}
+
 		if err = operatorManager.DeleteResourceCollection(ctx); err != nil {
 			return err
 		}
 
-		if err = o.client.DeleteStack(ctx, stackName, operatorManager.GetLogicalResourceIds()); err != nil {
+		if err = o.client.DeleteStack(ctx, stackName, logicalResourceIds); err != nil {
 			return err
 		}
 
@@ -147,6 +156,70 @@ func (o *CloudFormationStackOperator) DeleteCloudFormationStack(ctx context.Cont
 	}
 
 	return nil
+}
+
+func (o *CloudFormationStackOperator) buildStackLevelDeleteFailedError(ctx context.Context, stackName *string) error {
+	stacks, err := o.client.DescribeStacks(ctx, stackName)
+	if err != nil {
+		return err
+	}
+	if len(stacks) == 0 {
+		return nil
+	}
+
+	statusReason := aws.ToString(stacks[0].StackStatusReason)
+
+	failureMessages := o.collectLatestDeleteFailureReasons(ctx, stackName)
+
+	var detail string
+	switch {
+	case len(failureMessages) > 0:
+		detail = strings.Join(failureMessages, "\n")
+	case statusReason != "":
+		detail = statusReason
+	default:
+		detail = "stack is in DELETE_FAILED but no resource-level failure was reported. " +
+			"This typically means another stack still depends on this stack (e.g. imports an exported value)."
+	}
+
+	return fmt.Errorf("StackDeleteFailedError: failed to delete %v:\n%s", aws.ToString(stackName), detail)
+}
+
+func (o *CloudFormationStackOperator) collectLatestDeleteFailureReasons(ctx context.Context, stackName *string) []string {
+	events, err := o.client.DescribeStackEvents(ctx, stackName)
+	if err != nil {
+		io.Logger.Debug().Msgf("[%v]: DescribeStackEvents failed: %v", aws.ToString(stackName), err)
+		return nil
+	}
+
+	stackNameStr := aws.ToString(stackName)
+	messages := []string{}
+	seen := map[string]struct{}{}
+
+	// Events are returned in reverse chronological order. Walk only the latest
+	// delete attempt: stop as soon as we hit the DELETE_IN_PROGRESS event for
+	// the stack itself, because anything older belongs to a previous attempt.
+	for _, ev := range events {
+		isStackEvent := aws.ToString(ev.LogicalResourceId) == stackNameStr
+		if isStackEvent && ev.ResourceStatus == types.ResourceStatusDeleteInProgress {
+			break
+		}
+		if ev.ResourceStatus != types.ResourceStatusDeleteFailed {
+			continue
+		}
+		reason := aws.ToString(ev.ResourceStatusReason)
+		if reason == "" {
+			continue
+		}
+		key := aws.ToString(ev.LogicalResourceId) + "\x00" + reason
+		if _, dup := seen[key]; dup {
+			continue
+		}
+		seen[key] = struct{}{}
+		messages = append(messages, fmt.Sprintf("%s: %s", aws.ToString(ev.LogicalResourceId), reason))
+	}
+
+	return messages
 }
 
 func (o *CloudFormationStackOperator) deleteStackNormally(ctx context.Context, stackName *string, isRootStack bool) (bool, error) {

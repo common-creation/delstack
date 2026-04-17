@@ -16,6 +16,7 @@ const CloudFormationWaitNanoSecTime = time.Duration(4500000000000)
 type ICloudFormation interface {
 	DeleteStack(ctx context.Context, stackName *string, retainResources []string) error
 	DescribeStacks(ctx context.Context, stackName *string) ([]types.Stack, error)
+	DescribeStackEvents(ctx context.Context, stackName *string) ([]types.StackEvent, error)
 	ListStackResources(ctx context.Context, stackName *string) ([]types.StackResourceSummary, error)
 	GetTemplate(ctx context.Context, stackName *string) (*string, error)
 	UpdateStack(ctx context.Context, stackName *string, templateBody *string, parameters []types.Parameter) error
@@ -105,6 +106,47 @@ func (c *CloudFormation) DescribeStacks(ctx context.Context, stackName *string) 
 		}
 	}
 	return stacks, nil
+}
+
+func (c *CloudFormation) DescribeStackEvents(ctx context.Context, stackName *string) ([]types.StackEvent, error) {
+	var nextToken *string
+	stackEvents := []types.StackEvent{}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return stackEvents, &ClientError{
+				ResourceName: stackName,
+				Err:          ctx.Err(),
+			}
+		default:
+		}
+
+		input := &cloudformation.DescribeStackEventsInput{
+			StackName: stackName,
+			NextToken: nextToken,
+		}
+
+		output, err := c.client.DescribeStackEvents(ctx, input)
+		if err != nil && strings.Contains(err.Error(), "does not exist") {
+			return stackEvents, nil
+		}
+		if err != nil {
+			return stackEvents, &ClientError{
+				ResourceName: stackName,
+				Err:          err,
+			}
+		}
+
+		stackEvents = append(stackEvents, output.StackEvents...)
+
+		nextToken = output.NextToken
+		if nextToken == nil {
+			break
+		}
+	}
+
+	return stackEvents, nil
 }
 
 func (c *CloudFormation) ListStackResources(ctx context.Context, stackName *string) ([]types.StackResourceSummary, error) {

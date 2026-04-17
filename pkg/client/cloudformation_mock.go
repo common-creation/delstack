@@ -54,6 +54,21 @@ func (mr *MockICloudFormationMockRecorder) DeleteStack(ctx, stackName, retainRes
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteStack", reflect.TypeOf((*MockICloudFormation)(nil).DeleteStack), ctx, stackName, retainResources)
 }
 
+// DescribeStackEvents mocks base method.
+func (m *MockICloudFormation) DescribeStackEvents(ctx context.Context, stackName *string) ([]types.StackEvent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeStackEvents", ctx, stackName)
+	ret0, _ := ret[0].([]types.StackEvent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeStackEvents indicates an expected call of DescribeStackEvents.
+func (mr *MockICloudFormationMockRecorder) DescribeStackEvents(ctx, stackName any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeStackEvents", reflect.TypeOf((*MockICloudFormation)(nil).DescribeStackEvents), ctx, stackName)
+}
+
 // DescribeStacks mocks base method.
 func (m *MockICloudFormation) DescribeStacks(ctx context.Context, stackName *string) ([]types.Stack, error) {
 	m.ctrl.T.Helper()
