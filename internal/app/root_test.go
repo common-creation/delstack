@@ -17,17 +17,17 @@ func TestRootAction_Validation(t *testing.T) {
 	}{
 		{
 			name:    "no stack names and not interactive mode",
-			action:  NewRootAction(nil, "", "", false, false, true, 0),
+			action:  NewRootAction(nil, "", "", false, false, true, 0, false),
 			wantErr: "InvalidOptionError",
 		},
 		{
 			name:    "stack names with interactive mode",
-			action:  NewRootAction([]string{"Stack1"}, "", "", true, false, true, 0),
+			action:  NewRootAction([]string{"Stack1"}, "", "", true, false, true, 0, false),
 			wantErr: "InvalidOptionError",
 		},
 		{
 			name:    "negative concurrency number",
-			action:  NewRootAction([]string{"Stack1"}, "", "", false, false, true, -1),
+			action:  NewRootAction([]string{"Stack1"}, "", "", false, false, true, -1, false),
 			wantErr: "InvalidOptionError",
 		},
 	}

@@ -20,6 +20,7 @@ type App struct {
 	ForceMode         bool
 	YesMode           bool
 	ConcurrencyNumber int
+	IgnoreDependency  bool
 
 	// CDK subcommand fields
 	CdkAppPath  string
@@ -80,6 +81,13 @@ func NewApp(version string) *App {
 				Value:       UnspecifiedConcurrencyNumber,
 				Usage:       "Specify the number of parallel stack deletions. Default is unlimited (delete all stacks in parallel).",
 				Destination: &app.ConcurrencyNumber,
+			},
+			&cli.BoolFlag{
+				Name:        "ignoreDependency",
+				Aliases:     []string{"d"},
+				Value:       false,
+				Usage:       "Skip dependency graph analysis between stacks (useful for retrying deletion of partially deleted stacks)",
+				Destination: &app.IgnoreDependency,
 			},
 		},
 		Commands: []*cli.Command{
@@ -146,6 +154,13 @@ func NewApp(version string) *App {
 						Usage:       "Specify the number of parallel stack deletions. Default is unlimited (delete all stacks in parallel).",
 						Destination: &app.ConcurrencyNumber,
 					},
+					&cli.BoolFlag{
+						Name:        "ignoreDependency",
+						Aliases:     []string{"d"},
+						Value:       false,
+						Usage:       "Skip dependency graph analysis between stacks (useful for retrying deletion of partially deleted stacks)",
+						Destination: &app.IgnoreDependency,
+					},
 				},
 				Action: func(c *cli.Context) error {
 					return NewCdkAction(
@@ -156,6 +171,7 @@ func NewApp(version string) *App {
 						app.ForceMode,
 						app.YesMode,
 						app.ConcurrencyNumber,
+						app.IgnoreDependency,
 						app.CdkAppPath,
 						app.CdkContexts.Value(),
 					).Run(c.Context)
@@ -174,6 +190,7 @@ func NewApp(version string) *App {
 			app.ForceMode,
 			app.YesMode,
 			app.ConcurrencyNumber,
+			app.IgnoreDependency,
 		).Run(c.Context)
 	}
 	app.Cli.HideHelpCommand = true

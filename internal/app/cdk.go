@@ -17,11 +17,12 @@ type CdkAction struct {
 	forceMode         bool
 	yesMode           bool
 	concurrencyNumber int
+	ignoreDependency  bool
 	appPath           string
 	contexts          []string
 }
 
-func NewCdkAction(stackNames []string, profile, region string, interactiveMode, forceMode, yesMode bool, concurrencyNumber int, appPath string, contexts []string) *CdkAction {
+func NewCdkAction(stackNames []string, profile, region string, interactiveMode, forceMode, yesMode bool, concurrencyNumber int, ignoreDependency bool, appPath string, contexts []string) *CdkAction {
 	return &CdkAction{
 		stackNames:        stackNames,
 		profile:           profile,
@@ -30,6 +31,7 @@ func NewCdkAction(stackNames []string, profile, region string, interactiveMode, 
 		forceMode:         forceMode,
 		yesMode:           yesMode,
 		concurrencyNumber: concurrencyNumber,
+		ignoreDependency:  ignoreDependency,
 		appPath:           appPath,
 		contexts:          contexts,
 	}
@@ -98,7 +100,7 @@ func (a *CdkAction) Run(ctx context.Context) error {
 	}
 
 	// Step 5: Delete stacks
-	return NewCdkDeleter(a.profile, a.forceMode, a.concurrencyNumber).DeleteStacks(ctx, targetStacks)
+	return NewCdkDeleter(a.profile, a.forceMode, a.concurrencyNumber, a.ignoreDependency).DeleteStacks(ctx, targetStacks)
 }
 
 func (a *CdkAction) isDirectory() bool {

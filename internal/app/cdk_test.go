@@ -19,12 +19,12 @@ func TestCdkAction_Validation(t *testing.T) {
 	}{
 		{
 			name:    "stack names with interactive mode",
-			action:  NewCdkAction([]string{"Stack1"}, "", "", true, false, true, 0, "./cdk.out", nil),
+			action:  NewCdkAction([]string{"Stack1"}, "", "", true, false, true, 0, false, "./cdk.out", nil),
 			wantErr: "InvalidOptionError",
 		},
 		{
 			name:    "negative concurrency number",
-			action:  NewCdkAction(nil, "", "", false, false, true, -1, "./cdk.out", nil),
+			action:  NewCdkAction(nil, "", "", false, false, true, -1, false, "./cdk.out", nil),
 			wantErr: "InvalidOptionError",
 		},
 	}
@@ -58,7 +58,7 @@ func TestCdkAction_NoCdkJson(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	action := NewCdkAction(nil, "", "", false, false, true, 0, "", nil)
+	action := NewCdkAction(nil, "", "", false, false, true, 0, false, "", nil)
 	err = action.Run(context.Background())
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -73,7 +73,7 @@ func TestCdkAction_AppPathNoManifest(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	action := NewCdkAction(nil, "", "", false, false, true, 0, tmpDir, nil)
+	action := NewCdkAction(nil, "", "", false, false, true, 0, false, tmpDir, nil)
 	err := action.Run(context.Background())
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -93,7 +93,7 @@ func TestCdkAction_EmptyManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	action := NewCdkAction(nil, "", "", false, false, true, 0, tmpDir, nil)
+	action := NewCdkAction(nil, "", "", false, false, true, 0, false, tmpDir, nil)
 	err = action.Run(context.Background())
 	// No error — just logs "No stacks found" and returns nil
 	if err != nil {
@@ -120,7 +120,7 @@ func TestCdkAction_StackNameNotInManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	action := NewCdkAction([]string{"NonExistentStack"}, "", "us-east-1", false, false, true, 0, tmpDir, nil)
+	action := NewCdkAction([]string{"NonExistentStack"}, "", "us-east-1", false, false, true, 0, false, tmpDir, nil)
 	err = action.Run(context.Background())
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -141,7 +141,7 @@ func TestCdkAction_AppPathDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	action := NewCdkAction(nil, "", "", false, false, true, 0, tmpDir, nil)
+	action := NewCdkAction(nil, "", "", false, false, true, 0, false, tmpDir, nil)
 	err = action.Run(context.Background())
 	// No stacks in manifest, should return nil (no error, just "No stacks found")
 	if err != nil {
@@ -155,7 +155,7 @@ func TestCdkAction_AppPathCommand(t *testing.T) {
 	// -a with a non-directory string should be treated as an app command
 	// This will fail because "echo hello" won't produce a valid cdk.out,
 	// but it verifies the command path is taken (not the directory path)
-	action := NewCdkAction(nil, "", "", false, false, true, 0, "echo hello", nil)
+	action := NewCdkAction(nil, "", "", false, false, true, 0, false, "echo hello", nil)
 	err := action.Run(context.Background())
 	if err == nil {
 		t.Fatal("expected error for command appPath (no valid cdk.out produced)")

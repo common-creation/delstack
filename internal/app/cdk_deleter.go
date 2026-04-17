@@ -18,16 +18,18 @@ type CdkDeleter struct {
 	profile           string
 	forceMode         bool
 	concurrencyNumber int
+	ignoreDependency  bool
 	configLoader      IConfigLoader
 	analyzer          IDependencyAnalyzer
 	executor          IStackExecutor
 }
 
-func NewCdkDeleter(profile string, forceMode bool, concurrencyNumber int) *CdkDeleter {
+func NewCdkDeleter(profile string, forceMode bool, concurrencyNumber int, ignoreDependency bool) *CdkDeleter {
 	return &CdkDeleter{
 		profile:           profile,
 		forceMode:         forceMode,
 		concurrencyNumber: concurrencyNumber,
+		ignoreDependency:  ignoreDependency,
 		configLoader:      &ConfigLoader{},
 		analyzer:          &DependencyAnalyzer{},
 		executor:          &StackExecutor{},
@@ -72,7 +74,7 @@ func (d *CdkDeleter) deleteStacksInRegion(ctx context.Context, region string, st
 		stackNames[i] = s.StackName
 	}
 
-	deleter := NewStackDeleter(d.forceMode, d.concurrencyNumber, d.analyzer, d.executor)
+	deleter := NewStackDeleter(d.forceMode, d.concurrencyNumber, d.ignoreDependency, d.analyzer, d.executor)
 	return deleter.DeleteStacksConcurrently(ctx, stackNames, config, operatorFactory)
 }
 
