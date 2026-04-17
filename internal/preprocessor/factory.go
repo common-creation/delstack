@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
@@ -84,6 +85,11 @@ func newDeletionProtectionRemoverFromConfig(config aws.Config, forceMode bool) *
 		o.RetryMode = aws.RetryModeStandard
 	})
 
+	sdkDynamoDBClient := dynamodb.NewFromConfig(config, func(o *dynamodb.Options) {
+		o.RetryMaxAttempts = operation.SDKRetryMaxAttempts
+		o.RetryMode = aws.RetryModeStandard
+	})
+
 	return NewDeletionProtectionRemover(
 		forceMode,
 		client.NewEC2Client(sdkEC2Client),
@@ -91,5 +97,6 @@ func newDeletionProtectionRemoverFromConfig(config aws.Config, forceMode bool) *
 		client.NewCognito(sdkCognitoClient),
 		client.NewCloudWatchLogs(sdkLogsClient),
 		client.NewELBV2(sdkELBV2Client),
+		client.NewDynamoDB(sdkDynamoDBClient),
 	)
 }

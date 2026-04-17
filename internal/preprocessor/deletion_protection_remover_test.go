@@ -29,11 +29,12 @@ func TestDeletionProtectionRemover_Preprocess(t *testing.T) {
 	}
 
 	type mocks struct {
-		ec2     *client.MockIEC2
-		rds     *client.MockIRDS
-		cognito *client.MockICognito
-		logs    *client.MockICloudWatchLogs
-		elbv2   *client.MockIELBV2
+		ec2      *client.MockIEC2
+		rds      *client.MockIRDS
+		cognito  *client.MockICognito
+		logs     *client.MockICloudWatchLogs
+		elbv2    *client.MockIELBV2
+		dynamodb *client.MockIDynamoDB
 	}
 
 	cases := []struct {
@@ -404,6 +405,65 @@ func TestDeletionProtectionRemover_Preprocess(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name:      "dynamodb table deletion protection not enabled",
+			forceMode: false,
+			args: args{
+				ctx:       context.Background(),
+				stackName: aws.String("test-stack"),
+				resources: []types.StackResourceSummary{
+					{
+						ResourceType:       aws.String("AWS::DynamoDB::Table"),
+						LogicalResourceId:  aws.String("MyTable"),
+						PhysicalResourceId: aws.String("physical-id"),
+					},
+				},
+			},
+			setup: func(m mocks) {
+				m.dynamodb.EXPECT().CheckTableDeletionProtection(gomock.Any(), aws.String("physical-id")).Return(false, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name:      "dynamodb table deletion protection enabled without force mode",
+			forceMode: false,
+			args: args{
+				ctx:       context.Background(),
+				stackName: aws.String("test-stack"),
+				resources: []types.StackResourceSummary{
+					{
+						ResourceType:       aws.String("AWS::DynamoDB::Table"),
+						LogicalResourceId:  aws.String("MyTable"),
+						PhysicalResourceId: aws.String("physical-id"),
+					},
+				},
+			},
+			setup: func(m mocks) {
+				m.dynamodb.EXPECT().CheckTableDeletionProtection(gomock.Any(), aws.String("physical-id")).Return(true, nil)
+			},
+			wantErr: true,
+			errMsg:  "DeletionProtectionError",
+		},
+		{
+			name:      "dynamodb table deletion protection with force mode",
+			forceMode: true,
+			args: args{
+				ctx:       context.Background(),
+				stackName: aws.String("test-stack"),
+				resources: []types.StackResourceSummary{
+					{
+						ResourceType:       aws.String("AWS::DynamoDB::Table"),
+						LogicalResourceId:  aws.String("MyTable"),
+						PhysicalResourceId: aws.String("physical-id"),
+					},
+				},
+			},
+			setup: func(m mocks) {
+				m.dynamodb.EXPECT().CheckTableDeletionProtection(gomock.Any(), aws.String("physical-id")).Return(true, nil)
+				m.dynamodb.EXPECT().DisableTableDeletionProtection(gomock.Any(), aws.String("physical-id")).Return(nil)
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range cases {
@@ -413,16 +473,18 @@ func TestDeletionProtectionRemover_Preprocess(t *testing.T) {
 			mockCognito := client.NewMockICognito(ctrl)
 			mockLogs := client.NewMockICloudWatchLogs(ctrl)
 			mockELBV2 := client.NewMockIELBV2(ctrl)
+			mockDynamoDB := client.NewMockIDynamoDB(ctrl)
 
 			tt.setup(mocks{
-				ec2:     mockEC2,
-				rds:     mockRDS,
-				cognito: mockCognito,
-				logs:    mockLogs,
-				elbv2:   mockELBV2,
+				ec2:      mockEC2,
+				rds:      mockRDS,
+				cognito:  mockCognito,
+				logs:     mockLogs,
+				elbv2:    mockELBV2,
+				dynamodb: mockDynamoDB,
 			})
 
-			remover := NewDeletionProtectionRemover(tt.forceMode, mockEC2, mockRDS, mockCognito, mockLogs, mockELBV2)
+			remover := NewDeletionProtectionRemover(tt.forceMode, mockEC2, mockRDS, mockCognito, mockLogs, mockELBV2, mockDynamoDB)
 			err := remover.Preprocess(tt.args.ctx, tt.args.stackName, tt.args.resources)
 
 			if (err != nil) != tt.wantErr {

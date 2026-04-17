@@ -22,12 +22,13 @@ type protectedResource struct {
 }
 
 type DeletionProtectionRemover struct {
-	forceMode     bool
-	ec2Client     client.IEC2
-	rdsClient     client.IRDS
-	cognitoClient client.ICognito
-	logsClient    client.ICloudWatchLogs
-	elbv2Client   client.IELBV2
+	forceMode      bool
+	ec2Client      client.IEC2
+	rdsClient      client.IRDS
+	cognitoClient  client.ICognito
+	logsClient     client.ICloudWatchLogs
+	elbv2Client    client.IELBV2
+	dynamodbClient client.IDynamoDB
 }
 
 func NewDeletionProtectionRemover(
@@ -37,14 +38,16 @@ func NewDeletionProtectionRemover(
 	cognitoClient client.ICognito,
 	logsClient client.ICloudWatchLogs,
 	elbv2Client client.IELBV2,
+	dynamodbClient client.IDynamoDB,
 ) *DeletionProtectionRemover {
 	return &DeletionProtectionRemover{
-		forceMode:     forceMode,
-		ec2Client:     ec2Client,
-		rdsClient:     rdsClient,
-		cognitoClient: cognitoClient,
-		logsClient:    logsClient,
-		elbv2Client:   elbv2Client,
+		forceMode:      forceMode,
+		ec2Client:      ec2Client,
+		rdsClient:      rdsClient,
+		cognitoClient:  cognitoClient,
+		logsClient:     logsClient,
+		elbv2Client:    elbv2Client,
+		dynamodbClient: dynamodbClient,
 	}
 }
 
@@ -117,6 +120,8 @@ func (r *DeletionProtectionRemover) checkProtection(ctx context.Context, resourc
 		return r.logsClient.CheckLogGroupDeletionProtection(ctx, physicalId)
 	case resourcetype.Elbv2LoadBalancer:
 		return r.elbv2Client.CheckLoadBalancerDeletionProtection(ctx, physicalId)
+	case resourcetype.DynamoDBTable:
+		return r.dynamodbClient.CheckTableDeletionProtection(ctx, physicalId)
 	default:
 		return false, nil
 	}
@@ -168,6 +173,8 @@ func (r *DeletionProtectionRemover) disableProtection(ctx context.Context, pr pr
 		return r.logsClient.DisableLogGroupDeletionProtection(ctx, aws.String(pr.physicalResourceId))
 	case resourcetype.Elbv2LoadBalancer:
 		return r.elbv2Client.DisableLoadBalancerDeletionProtection(ctx, aws.String(pr.physicalResourceId))
+	case resourcetype.DynamoDBTable:
+		return r.dynamodbClient.DisableTableDeletionProtection(ctx, aws.String(pr.physicalResourceId))
 	default:
 		return nil
 	}
@@ -180,7 +187,8 @@ func (r *DeletionProtectionRemover) isTargetResourceType(resourceType string) bo
 		resourcetype.RdsDBCluster,
 		resourcetype.CognitoUserPool,
 		resourcetype.LogsLogGroup,
-		resourcetype.Elbv2LoadBalancer:
+		resourcetype.Elbv2LoadBalancer,
+		resourcetype.DynamoDBTable:
 		return true
 	default:
 		return false

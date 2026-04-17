@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/athena"
 	"github.com/aws/aws-sdk-go-v2/service/backup"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
@@ -200,6 +201,19 @@ func (f *OperatorFactory) CreateLambdaFunctionOperator() *LambdaFunctionOperator
 		client.NewLambdaClient(
 			sdkLambdaClient,
 			sdkLambdaWaiter,
+		),
+	)
+}
+
+func (f *OperatorFactory) CreateDynamoDBTableOperator() *DynamoDBTableOperator {
+	sdkDynamoDBClient := dynamodb.NewFromConfig(f.config, func(o *dynamodb.Options) {
+		o.RetryMaxAttempts = SDKRetryMaxAttempts
+		o.RetryMode = aws.RetryModeStandard
+	})
+
+	return NewDynamoDBTableOperator(
+		client.NewDynamoDB(
+			sdkDynamoDBClient,
 		),
 	)
 }

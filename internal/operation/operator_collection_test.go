@@ -37,6 +37,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 		backupVaultOperatorResourcesLength         int
 		athenaWorkGroupOperatorResourcesLength     int
 		lambdaFunctionOperatorResourcesLength      int
+		dynamodbTableOperatorResourcesLength       int
 		cloudformationStackOperatorResourcesLength int
 		customOperatorResourcesLength              int
 	}
@@ -152,6 +153,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 				backupVaultOperatorResourcesLength:         1,
 				athenaWorkGroupOperatorResourcesLength:     1,
 				lambdaFunctionOperatorResourcesLength:      1,
+				dynamodbTableOperatorResourcesLength:       0,
 				cloudformationStackOperatorResourcesLength: 1,
 				customOperatorResourcesLength:              2,
 			},
@@ -178,7 +180,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 			},
 			want: want{
 				logicalResourceIdsLength:                   2,
-				unsupportedStackResourcesLength:            1,
+				unsupportedStackResourcesLength:            0,
 				s3BucketOperatorResourcesLength:            0,
 				s3DirectoryBucketOperatorResourcesLength:   0,
 				s3TableBucketOperatorResourcesLength:       0,
@@ -190,6 +192,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 				backupVaultOperatorResourcesLength:         0,
 				athenaWorkGroupOperatorResourcesLength:     0,
 				lambdaFunctionOperatorResourcesLength:      0,
+				dynamodbTableOperatorResourcesLength:       1,
 				cloudformationStackOperatorResourcesLength: 1,
 				customOperatorResourcesLength:              0,
 			},
@@ -228,7 +231,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 			},
 			want: want{
 				logicalResourceIdsLength:                   4,
-				unsupportedStackResourcesLength:            2,
+				unsupportedStackResourcesLength:            0,
 				s3BucketOperatorResourcesLength:            0,
 				s3DirectoryBucketOperatorResourcesLength:   0,
 				s3TableBucketOperatorResourcesLength:       0,
@@ -240,6 +243,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 				backupVaultOperatorResourcesLength:         0,
 				athenaWorkGroupOperatorResourcesLength:     0,
 				lambdaFunctionOperatorResourcesLength:      0,
+				dynamodbTableOperatorResourcesLength:       2,
 				cloudformationStackOperatorResourcesLength: 2,
 				customOperatorResourcesLength:              0,
 			},
@@ -266,7 +270,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 			},
 			want: want{
 				logicalResourceIdsLength:                   1,
-				unsupportedStackResourcesLength:            1,
+				unsupportedStackResourcesLength:            0,
 				s3BucketOperatorResourcesLength:            0,
 				s3DirectoryBucketOperatorResourcesLength:   0,
 				s3TableBucketOperatorResourcesLength:       0,
@@ -278,6 +282,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 				backupVaultOperatorResourcesLength:         0,
 				athenaWorkGroupOperatorResourcesLength:     0,
 				lambdaFunctionOperatorResourcesLength:      0,
+				dynamodbTableOperatorResourcesLength:       1,
 				cloudformationStackOperatorResourcesLength: 0,
 				customOperatorResourcesLength:              0,
 			},
@@ -316,7 +321,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 			},
 			want: want{
 				logicalResourceIdsLength:                   2,
-				unsupportedStackResourcesLength:            2,
+				unsupportedStackResourcesLength:            0,
 				s3BucketOperatorResourcesLength:            0,
 				s3DirectoryBucketOperatorResourcesLength:   0,
 				s3TableBucketOperatorResourcesLength:       0,
@@ -328,6 +333,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 				backupVaultOperatorResourcesLength:         0,
 				athenaWorkGroupOperatorResourcesLength:     0,
 				lambdaFunctionOperatorResourcesLength:      0,
+				dynamodbTableOperatorResourcesLength:       2,
 				cloudformationStackOperatorResourcesLength: 0,
 				customOperatorResourcesLength:              0,
 			},
@@ -366,6 +372,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 				backupVaultOperatorResourcesLength:         0,
 				athenaWorkGroupOperatorResourcesLength:     0,
 				lambdaFunctionOperatorResourcesLength:      0,
+				dynamodbTableOperatorResourcesLength:       0,
 				cloudformationStackOperatorResourcesLength: 1,
 				customOperatorResourcesLength:              0,
 			},
@@ -416,6 +423,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 				backupVaultOperatorResourcesLength:         0,
 				athenaWorkGroupOperatorResourcesLength:     0,
 				lambdaFunctionOperatorResourcesLength:      0,
+				dynamodbTableOperatorResourcesLength:       0,
 				cloudformationStackOperatorResourcesLength: 2,
 				customOperatorResourcesLength:              0,
 			},
@@ -441,6 +449,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 			backupVaultOperatorResourcesLength := 0
 			athenaWorkGroupOperatorResourcesLength := 0
 			lambdaFunctionOperatorResourcesLength := 0
+			dynamodbTableOperatorResourcesLength := 0
 			cloudformationStackOperatorResourcesLength := 0
 			customOperatorResourcesLength := 0
 
@@ -470,6 +479,8 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 					athenaWorkGroupOperatorResourcesLength += operator.GetResourcesLength()
 				case *LambdaFunctionOperator:
 					lambdaFunctionOperatorResourcesLength += operator.GetResourcesLength()
+				case *DynamoDBTableOperator:
+					dynamodbTableOperatorResourcesLength += operator.GetResourcesLength()
 				case *CloudFormationStackOperator:
 					cloudformationStackOperatorResourcesLength += operator.GetResourcesLength()
 				case *CustomOperator:
@@ -492,6 +503,7 @@ func TestOperatorCollection_SetOperatorCollection(t *testing.T) {
 				backupVaultOperatorResourcesLength:         backupVaultOperatorResourcesLength,
 				athenaWorkGroupOperatorResourcesLength:     athenaWorkGroupOperatorResourcesLength,
 				lambdaFunctionOperatorResourcesLength:      lambdaFunctionOperatorResourcesLength,
+				dynamodbTableOperatorResourcesLength:       dynamodbTableOperatorResourcesLength,
 				cloudformationStackOperatorResourcesLength: cloudformationStackOperatorResourcesLength,
 				customOperatorResourcesLength:              customOperatorResourcesLength,
 			}
@@ -698,11 +710,20 @@ func TestOperatorCollection_containsResourceType(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "unsupported resource",
+			name: "DynamoDB Table",
 			args: args{
 				ctx:       context.Background(),
 				stackName: aws.String("test"),
 				resource:  "AWS::DynamoDB::Table",
+			},
+			want: true,
+		},
+		{
+			name: "unsupported resource",
+			args: args{
+				ctx:       context.Background(),
+				stackName: aws.String("test"),
+				resource:  "AWS::SQS::Queue",
 			},
 			want: false,
 		},

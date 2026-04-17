@@ -131,6 +131,7 @@ If you need support for additional resource types, please create an issue at [Gi
 |  AWS::Backup::BackupVault  |  Backup Vaults, including vaults **containing recovery points**.  |
 |  AWS::Athena::WorkGroup  |  Athena WorkGroups, including workgroups containing **named queries or prepared statements**.  |
 |  AWS::Lambda::Function  |  Lambda Functions, including **Lambda@Edge functions with replicas** still being cleaned up by AWS. Waits for AWS to finish removing edge replicas.  |
+|  AWS::DynamoDB::Table  |  DynamoDB Tables, including tables with **deletion protection enabled**.  |
 |  AWS::CloudFormation::Stack  |  **Nested Child Stacks** that failed to delete. If any of the other resources are included in the child stack, **they too will be deleted**.  |
 |  AWS::CloudFormation::CustomResource  |  Custom Resources (AWS::CloudFormation::CustomResource), including resources that **do not return a SUCCESS status.**  |
 |  Custom::Xxx  |  Custom Resources (Custom::Xxx), including resources that **do not return a SUCCESS status.**  |
@@ -157,6 +158,7 @@ Checks for resource-level deletion protection before attempting stack deletion.
 |  AWS::Cognito::UserPool  |
 |  AWS::Logs::LogGroup  |
 |  AWS::ElasticLoadBalancingV2::LoadBalancer  |
+|  AWS::DynamoDB::Table  |
 
 ### Performance Optimization
 

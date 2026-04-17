@@ -20,6 +20,7 @@ const (
 // For Force Deletion and Preprocessors
 const (
 	LambdaFunction = "AWS::Lambda::Function"
+	DynamoDBTable  = "AWS::DynamoDB::Table"
 )
 
 // For Deletion Protection Check
@@ -44,6 +45,7 @@ var ResourceTypes = []string{
 	BackupVault,
 	AthenaWorkGroup,
 	LambdaFunction,
+	DynamoDBTable,
 	CloudformationStack,
 	CloudformationCustomResource,
 	CustomResource,
